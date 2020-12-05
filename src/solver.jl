@@ -24,7 +24,7 @@ function explicit_solver!(s::RigidStructure, dt::Float64)
             if s.dim == 2
                 M = 0.
                 for node in s.nodes
-                    M += cross_product(node.x0+node.d - s.system.x, s.ext_f[node.id*dim-dim+1:node.id*dim])
+                    M += cross_product(node.x0+node.d - s.system.x, s.ext_f[node.id*dim-dim+1:node.id*dim])[3]
                 end
                 s.system.domega = M / s.para["I"]
                 s.system.omega += s.system.domega * dt
