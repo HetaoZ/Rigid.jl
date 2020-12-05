@@ -12,6 +12,7 @@ end
 Ref：https://zhuanlan.zhihu.com/p/45800345
 """
 function explicit_solver!(s::RigidStructure, dt::Float64)
+    dim = s.dim
     f = [sum(s.ext_f[k:s.dim:end]) for k in 1:s.dim]
     
     
