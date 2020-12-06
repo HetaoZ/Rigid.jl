@@ -94,18 +94,21 @@ function explicit_solver!(s::RigidStructure, dt::Float64)
     else
         error("undef dim")
     end
+    xs = fetch_data(s, :x0) .+ fetch_data(s, :d)
+    x = xs[1,:]
+    y = xs[2,:]
     for i in 1:s.nnp
-        s.boundary[i].normal = outer_normal(s.nodes[s.boundary[i].link], s.dim)
+        s.boundary[i].normal = outer_normal(x, y, s.nodes[s.boundary[i].link], s.dim)
     end
 end
 
-function outer_normal(nodes, dim)
+function outer_normal(x, y, nodes, dim)
     normal = convex_normal(nodes, dim)
     nodesx = map(node->node.x0+node.d, nodes)
     xc = sum(nodesx)/length(nodesx)
     bias = 1.e-10
     xt = xc + normal*bias
-    if pinpoly(xs, xt) == 1
+    if pinpoly(x, y, xt[1], xt[2]) == 1
         normal *= -1
     end
     return normal
