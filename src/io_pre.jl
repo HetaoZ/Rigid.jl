@@ -81,7 +81,7 @@ function set_fixed_u!(s::RigidStructure, u::Vector{Float64})
     s.fixed_u = u
     for i = 1:s.nnp 
         s.nodes[i].u = copy(s.fixed_u)
-        s.nodes[i].a = 0.
+        s.nodes[i].a = zeros(Float64, s.dim)
     end
     s.system.u = copy(s.fixed_u)
     s.system.a = zeros(Float64, s.dim)

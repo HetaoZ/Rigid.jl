@@ -15,7 +15,6 @@ function explicit_solver!(s::RigidStructure, dt::Float64)
     dim = s.dim
     f = [sum(s.ext_f[k:s.dim:end]) for k in 1:s.dim]
     
-    
     if s.rotatable
         if s.omega_is_fixed
             s.system.omega = omega
