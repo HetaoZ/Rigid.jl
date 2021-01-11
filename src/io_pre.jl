@@ -1,9 +1,24 @@
 """
-Generate a rigid structure.
+Generate a rigid structure in clockwise order.
 """
 function create_rigid(dim::Int, rho::Real, I::Real, xs::Vector...)
+    if dim == 1
+        area = xs[1][2]-xs[1][1]
+    elseif dim == 2
+        area = MathKits.polygon_area(xs[1], xs[2])
+    else
+        error("undef dim")
+    end
+    if  area > 0.
+        # do nothing
+    elseif area < 0.
+        xs = (reverse(xs[1]), reverse(xs[2]))
+    else
+        error("Area = 0")
+    end
+
     s = RigidStructure(dim, length(xs[1]))
-    
+
     for i in eachindex(s.nodes)
         s.nodes[i] = Node(i, [xs[k][i] for k in 1:dim], zeros(Float64, dim), zeros(Float64, dim), zeros(Float64, dim))
     end
@@ -14,24 +29,7 @@ function create_rigid(dim::Int, rho::Real, I::Real, xs::Vector...)
     s.system.omega = 0.
     s.system.domega = 0.
 
-    if dim == 1
-        s.boundary = [Convex(1,[1],[1.0]), Convex(2,[2],[1.0])]
-        if s.nodes[1].x0[1] < s.nodes[2].x0[1]
-            s.boundary[1].normal *= -1
-        else
-            s.boundary[2].normal *= -1
-        end
-    elseif dim == 2
-        for i in eachindex(s.boundary)
-            s.boundary[i] = Convex(i, [i,i+1], [0.,0.])
-        end
-        s.boundary[end].link[2] = 1
-        for i in eachindex(s.boundary)
-            s.boundary[i].normal = outer_normal(dim, s.boundary[i], s.nodes, [xs[1] xs[2]])
-        end
-    else
-        error("undef")
-    end
+    create_boundary!(s)
 
     s.para["rho"] = rho
     s.para["mass"] = MathKits.get_volume(xs...) * rho
@@ -43,27 +41,66 @@ function create_rigid(dim::Int, rho::Real, I::Real, xs::Vector...)
     return s
 end
 
-function outer_normal(dim::Int, c::Convex, nodes::Vector{Node}, xs::Array)
-    normal = convex_normal(c, nodes, dim)
-    nodesx = map(k->nodes[k].x0+nodes[k].d, c.link)
+function create_boundary!(s)
+    dim = s.dim
+    if dim == 1
+        s.boundary = [Convex(1,[1],[1.0]), Convex(2,[2],[1.0])]
+        if s.nodes[1].x0[1] < s.nodes[2].x0[1]
+            s.boundary[1].normal *= -1
+        else
+            s.boundary[2].normal *= -1
+        end
+    elseif dim == 2
+        
+        poly_coords = fetch_data(s, :x0)+fetch_data(s, :d)
+        poly_xs = Matrix{Float64}(undef, s.nnp, 2)
+        for i = 1:s.nnp
+            poly_xs[i,:] = poly_coords[i]
+        end
+
+        for i in eachindex(s.boundary)
+            s.boundary[i] = Convex(i, [i,i+1], [0.,0.])
+        end
+        s.boundary[end].link[2] = 1
+        for i in eachindex(s.boundary)
+            s.boundary[i].normal = outer_normal(dim, s.nodes[s.boundary[i].link], poly_xs)
+        end
+    else
+        error("undef")
+    end
+end
+
+function outer_normal(dim, nodes, xs)
+    normal = - convex_normal(dim, nodes)
+
+    nodesx = map(node->node.x0+node.d, nodes)
     xc = sum(nodesx)/length(nodesx)
-    bias = 1.e-10
-    xt = xc + normal*bias
-    if pinpoly(xs, xt) == 1
-        normal *= -1
+    xt = xc + normal*1.e-10
+
+    if dim == 1
+        if MathKits.between(xt, nodes[1].x0+nodes[1].d, nodes[2].x0+nodes[2].d)
+            normal *= -1
+        end
+    elseif dim == 2
+        if pinpoly(xs, xt[1], xt[2]) == 1
+            normal *= -1
+        end
+
+    else
+        error("undef")
     end
     return normal
 end
 
-function convex_normal(c, nodes, dim)
+function convex_normal(dim, nodes)
     if dim == 1
         normal = [1]
     elseif dim == 2
-        normal = rotate_matrix(pi/2) * ((nodes[c.link[2]].x0+nodes[c.link[2]].d) - ((nodes[c.link[1]].x0+nodes[c.link[1]].d)))
+        normal = rotate_matrix(pi/2) * ((nodes[2].x0+nodes[2].d) - ((nodes[1].x0+nodes[1].d)))
     else
         error("undef")
     end
-    return truncated_normalize(normal)
+    return normal/norm(normal)
 end
 
 function truncated_normalize(v)

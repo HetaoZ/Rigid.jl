@@ -38,3 +38,4 @@ end
 function copy_convex!(c::Convex)
     return Convex(c.id, c.link, copy(c.normal))
 end
+
